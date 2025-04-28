@@ -4,7 +4,7 @@ const transactionSchema = new mongoose.Schema({
   vip: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Vip',
-    required: true
+    required: false
   },
   type: {
     type: String,
@@ -14,6 +14,11 @@ const transactionSchema = new mongoose.Schema({
   amount: {
     type: Number,
     required: true
+  },
+  paymentMethod: {
+    type: String,
+    enum: ['vip_balance', 'cash', 'pos', 'douyin', 'meituan', 'other'],
+    required: function() { return this.type === 'consumption'; }
   },
   projects: [{
     project: {

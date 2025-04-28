@@ -38,7 +38,7 @@
       alert('添加会员成功');
 
       // 跳转到会员详情页
-      window.location.href = `/vip/${result._id}`;
+      window.location.href = `/vip/${result.data._id}`;
     } catch (err) {
       console.error('添加会员失败:', err);
       error = err.message || '添加会员失败';

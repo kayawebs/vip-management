@@ -9,7 +9,7 @@
   onMount(async () => {
     try {
       const data = await projectApi.getAll();
-      projects = data;
+      projects = data.data;
     } catch (err) {
       console.error('获取项目列表失败:', err);
       error = err.message || '加载项目列表失败';

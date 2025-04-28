@@ -24,16 +24,16 @@
       if (tabParam && ['info', 'recharge', 'consume'].includes(tabParam)) {
         activeTab = tabParam;
       }
-      
+
       const [vipData, projectsData, techniciansData] = await Promise.all([
         vipApi.getById(id),
         projectApi.getAll(),
         technicianApi.getAll()
       ]);
 
-      vip = vipData;
-      projects = projectsData;
-      technicians = techniciansData;
+      vip = vipData.data;
+      projects = projectsData.data;
+      technicians = techniciansData.data;
     } catch (err) {
       console.error('加载数据失败:', err);
       error = err.message || '加载数据失败';
@@ -91,7 +91,7 @@
       });
 
       alert('充值成功');
-      vip = result.vip;
+      vip = result.data.vip;
       rechargeAmount = '';
       rechargeNote = '';
       activeTab = 'info';
@@ -124,7 +124,7 @@
       });
 
       alert('消费成功');
-      vip = result.vip;
+      vip = result.data.vip;
       selectedProjects = [];
       selectedTechnician = '';
       consumptionNote = '';

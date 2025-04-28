@@ -1,13 +1,14 @@
 <script>
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
+  import './app.css'
 
   let isMenuOpen = false;
 
   function toggleMenu() {
     isMenuOpen = !isMenuOpen;
   }
-  
+
   function closeMenu() {
     isMenuOpen = false;
   }
@@ -31,6 +32,7 @@
         <li><a href="/projects" on:click={closeMenu}>项目管理</a></li>
         <li><a href="/technicians" on:click={closeMenu}>技师管理</a></li>
         <li><a href="/reports" on:click={closeMenu}>报表管理</a></li>
+        <li><a href="/reports/manual-import" on:click={closeMenu}>手动导入日报</a></li>
         <li><a href="/converter" on:click={closeMenu}>汇率换算</a></li>
       </ul>
     </nav>
@@ -134,4 +136,4 @@
       padding: 1rem;
     }
   }
-</style> 
+</style>

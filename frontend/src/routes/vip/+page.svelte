@@ -1,6 +1,6 @@
-<script>
+<script lang="ts">
   import { onMount } from 'svelte';
-  import { vipApi } from '$lib/api';
+  import { vipApi } from '$lib/api/index.ts';
 
   let vips = [];
   let loading = true;
@@ -50,7 +50,7 @@
   onMount(async () => {
     try {
       const data = await vipApi.getAll();
-      vips = data;
+      vips = data.data;
     } catch (err) {
       console.error('获取VIP列表失败:', err);
       error = err.message || '加载VIP列表失败';
