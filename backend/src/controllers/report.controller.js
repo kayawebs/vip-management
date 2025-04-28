@@ -263,77 +263,91 @@ exports.getVipSummary = async (req, res) => {
   }
 };
 
-// 获取平台 (Douyin/Meituan) 概览数据 - CORRECTED to use 'date'
+// 获取平台 (Douyin/Meituan) 概览数据
 exports.getPlatformSummary = async (req, res) => {
   try {
     const { startDate, endDate, platform } = req.query;
 
     if (!platform || !['douyin', 'meituan'].includes(platform.toLowerCase())) {
-        return res.status(400).json({ message: 'Invalid or missing platform parameter (douyin or meituan required)' });
+      return res.status(400).json({ message: 'Invalid or missing platform parameter (douyin or meituan required)' });
     }
 
-    const dateQuery = getDateRangeQuery(startDate, endDate, 'date'); // Use 'date'
+    // Date range query on DailyReport.date
+    const dateQuery = getDateRangeQuery(startDate, endDate, 'date');
 
-    const platformAgg = await Transaction.aggregate([
-       // Match uses 'date' now via dateQuery
-       { $match: { ...dateQuery, type: 'consumption', paymentMethod: platform.toLowerCase() } }, 
-       {
-         $group: {
-           _id: null, 
-           totalRevenue: { $sum: '$amount' },
-           orderCount: { $sum: 1 }
-           // totalHours: { $sum: '$hours' } 
-         }
-       }
+    // Aggregate from DailyReport model
+    const fieldPrefix = platform.toLowerCase();
+    const agg = await DailyReport.aggregate([
+      { $match: dateQuery },
+      {
+        $group: {
+          _id: null,
+          totalRevenue: { $sum: { $ifNull: [`$${fieldPrefix}.revenue`, 0] } },
+          totalHours: { $sum: { $ifNull: [`$${fieldPrefix}.hours`, 0] } },
+          reportCount: { $sum: 1 }
+        }
+      }
     ]);
 
-    const summary = platformAgg[0] || { totalRevenue: 0, orderCount: 0 };
+    const summary = agg[0] || { totalRevenue: 0, totalHours: 0, reportCount: 0 };
 
     res.status(200).json({
       totalRevenue: summary.totalRevenue,
-      orderCount: summary.orderCount
-      // totalHours: summary.totalHours
+      totalHours: summary.totalHours,
+      orderCount: summary.reportCount
     });
 
   } catch (error) {
-      console.error(`Error fetching ${platform} summary:`, error);
-      res.status(500).json({ message: error.message });
+    console.error(`Error fetching ${req.query.platform} summary from DailyReport:`, error);
+    res.status(500).json({ message: error.message });
   }
 };
 
-// 获取现金/POS 概览数据 - CORRECTED to use 'date'
+// 获取现金/POS 概览数据
 exports.getCashSummary = async (req, res) => {
-   try {
+  try {
     const { startDate, endDate } = req.query;
-    const dateQuery = getDateRangeQuery(startDate, endDate, 'date'); // Use 'date'
+    // Date range query on DailyReport.date
+    const dateQuery = getDateRangeQuery(startDate, endDate, 'date');
 
-     const cashPosAgg = await Transaction.aggregate([
-       // Match uses 'date' now via dateQuery
-       { $match: { ...dateQuery, type: 'consumption', paymentMethod: { $in: ['cash', 'pos'] } } }, 
-       {
-         $group: {
-           _id: '$paymentMethod', 
-           totalRevenue: { $sum: '$amount' },
-           transactionCount: { $sum: 1 }
-           // totalHours: { $sum: '$hours' } 
-         }
-       }
+    // Aggregate cash and pos from DailyReport
+    const agg = await DailyReport.aggregate([
+      { $match: dateQuery },
+      {
+        $group: {
+          _id: null,
+          totalRevenue: {
+            $sum: {
+              $add: [
+                { $ifNull: ['$cash.revenue', 0] },
+                { $ifNull: ['$pos.revenue', 0] }
+              ]
+            }
+          },
+          totalHours: {
+            $sum: {
+              $add: [
+                { $ifNull: ['$cash.hours', 0] },
+                { $ifNull: ['$pos.hours', 0] }
+              ]
+            }
+          },
+          reportCount: { $sum: 1 }
+        }
+      }
     ]);
 
-    const cashTotal = cashPosAgg.find(g => g._id === 'cash') || { totalRevenue: 0, transactionCount: 0 };
-    const posTotal = cashPosAgg.find(g => g._id === 'pos') || { totalRevenue: 0, transactionCount: 0 };
+    const summary = agg[0] || { totalRevenue: 0, totalHours: 0, reportCount: 0 };
 
-    const combinedSummary = {
-        totalRevenue: (cashTotal.totalRevenue || 0) + (posTotal.totalRevenue || 0),
-        transactionCount: (cashTotal.transactionCount || 0) + (posTotal.transactionCount || 0)
-        // totalHours: ...
-    }
-
-    res.status(200).json(combinedSummary);
+    res.status(200).json({
+      totalRevenue: summary.totalRevenue,
+      totalHours: summary.totalHours,
+      transactionCount: summary.reportCount
+    });
 
   } catch (error) {
-      console.error("Error fetching Cash/POS summary:", error);
-      res.status(500).json({ message: error.message });
+    console.error('Error fetching cash summary from DailyReport:', error);
+    res.status(500).json({ message: error.message });
   }
 };
 

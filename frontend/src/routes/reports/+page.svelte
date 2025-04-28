@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { format } from 'date-fns';
-  import { reportApi } from '$lib/api_bak';
+  import { reportApi } from '$lib/api';
 
   // Define interfaces for data structures (adjust based on actual API response)
   interface Transaction {
@@ -74,19 +74,18 @@
       const params = { startDate, endDate };
 
       // Fetch all summary data concurrently
-      const [vipData, douyinData, meituanData, cashData] = await Promise.all([
+      const [vipRes, douyinRes, meituanRes, cashRes] = await Promise.all([
         reportApi.getVipSummary(params),
         reportApi.getPlatformSummary({ ...params, platform: 'douyin' }),
         reportApi.getPlatformSummary({ ...params, platform: 'meituan' }),
         reportApi.getCashSummary(params)
       ]);
 
-      // Assign fetched data to state variables
-      // Assuming the API returns objects matching or compatible with VipSummary/PlatformSummary interfaces
-      vipSummary = { ...vipSummary, ...vipData };
-      douyinSummary = { ...douyinSummary, ...douyinData };
-      meituanSummary = { ...meituanSummary, ...meituanData };
-      cashSummary = { ...cashSummary, ...cashData };
+      // Extract data from Axios responses
+      vipSummary = vipRes.data; 
+      douyinSummary = douyinRes.data;
+      meituanSummary = meituanRes.data;
+      cashSummary = cashRes.data;
 
     } catch (err: unknown) {
       console.error('加载报表概览数据失败:', err);
@@ -108,9 +107,9 @@
         endDate
       };
 
-      // Assume reportApi.getRechargeReport returns { transactions: Transaction[] } or similar
-      const data = await reportApi.getRechargeReport(params);
-      rechargeData = data.transactions || [];
+      // Call recharge report endpoint and extract transactions
+      const response = await reportApi.getRechargeReport(params);
+      rechargeData = response.data.transactions || [];
     } catch (err: unknown) { // Type the catch error
       console.error('加载充值报表失败:', err);
       error = err instanceof Error ? err.message : '加载充值报表失败'; // Handle potential non-Error throws
@@ -130,9 +129,9 @@
         endDate
       };
 
-      // Assume reportApi.getConsumptionReport returns { transactions: Transaction[] } or similar
-      const data = await reportApi.getConsumptionReport(params);
-      consumptionData = data.transactions || [];
+      // Call consumption report endpoint and extract transactions
+      const response = await reportApi.getConsumptionReport(params);
+      consumptionData = response.data.transactions || [];
     } catch (err: unknown) { // Type the catch error
       console.error('加载消费报表失败:', err);
       error = err instanceof Error ? err.message : '加载消费报表失败'; // Handle potential non-Error throws
