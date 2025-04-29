@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { reportApi } from '$lib/api_bak'; // Import the API library
+  import { reportApi } from '$lib/api'; // 修正导入路径
   import { format } from 'date-fns'; // For default date
 
   let reportDate = format(new Date(), 'yyyy-MM-dd'); // Add date selection
@@ -16,7 +16,7 @@
   let submitError: string | null = null;
   let submitSuccess: string | null = null;
 
-  async function handleSubmit() { // Make async
+  async function handleSubmit() {
     submitError = null;
     submitSuccess = null;
     // Basic validation (can be enhanced)
@@ -46,7 +46,6 @@
     submitting = true;
     try {
       console.log('提交日报数据:', reportData);
-      console.log(reportApi)
       await reportApi.createDailyReport(reportData);
       submitSuccess = `日期 ${reportDate} 的日报已成功提交/更新！`;
       alert(submitSuccess);

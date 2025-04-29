@@ -4,7 +4,7 @@ const transactionSchema = new mongoose.Schema({
   vip: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Vip',
-    required: false
+    required: true
   },
   type: {
     type: String,
@@ -15,10 +15,12 @@ const transactionSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
-  paymentMethod: {
-    type: String,
-    enum: ['vip_balance', 'cash', 'pos', 'douyin', 'meituan', 'other'],
-    required: function() { return this.type === 'consumption'; }
+  technician: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Technician',
+    required: function() {
+      return this.type === 'consumption';
+    }
   },
   projects: [{
     project: {
@@ -30,15 +32,16 @@ const transactionSchema = new mongoose.Schema({
       default: 1
     }
   }],
-  technician: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Technician'
+  paymentMethod: {
+    type: String,
+    enum: ['vip_balance', 'cash', 'pos', 'douyin', 'meituan'],
+    required: true
   },
+  notes: String,
   date: {
     type: Date,
     default: Date.now
-  },
-  notes: String
+  }
 });
 
 module.exports = mongoose.model('Transaction', transactionSchema); 

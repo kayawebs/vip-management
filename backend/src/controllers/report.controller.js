@@ -8,46 +8,49 @@ const DailyReport = require('../models/dailyReport.model');
 exports.getTransactions = async (req, res) => {
   try {
     const { startDate, endDate, type, vipId, technicianId } = req.query;
-    
+
     // 构建查询条件
     const query = {};
-    
+
     // 按时间范围筛选
     if (startDate || endDate) {
       query.date = {};
       if (startDate) {
-        query.date.$gte = new Date(startDate);
+        const start = new Date(startDate);
+        // 设置本地时区的开始时间
+        start.setUTCHours(0, 0, 0, 0);
+        query.date.$gte = start;
       }
       if (endDate) {
-        // 设置结束日期为当天的23:59:59
         const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
+        // 设置本地时区的结束时间
+        end.setUTCHours(23, 59, 59, 999);
         query.date.$lte = end;
       }
     }
-    
+
     // 按交易类型筛选
     if (type) {
       query.type = type;
     }
-    
+
     // 按VIP筛选
     if (vipId) {
       query.vip = vipId;
     }
-    
+
     // 按技师筛选
     if (technicianId) {
       query.technician = technicianId;
     }
-    
+
     // 执行查询并填充关联数据
     const transactions = await Transaction.find(query)
       .populate('vip', 'name phone')
       .populate('technician', 'name code')
       .populate('projects.project', 'name price')
       .sort({ date: -1 });
-    
+
     res.status(200).json(transactions);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -57,33 +60,47 @@ exports.getTransactions = async (req, res) => {
 // 获取充值报表
 exports.getRechargeReport = async (req, res) => {
   try {
-    const { startDate, endDate } = req.query;
-    
+    const { startDate, endDate, phone } = req.query;
+
     // 构建查询条件
     const query = { type: 'recharge' };
-    
+
     // 按时间范围筛选
     if (startDate || endDate) {
       query.date = {};
       if (startDate) {
-        query.date.$gte = new Date(startDate);
+        const start = new Date(startDate);
+        start.setUTCHours(0, 0, 0, 0);
+        query.date.$gte = start;
       }
       if (endDate) {
-        // 设置结束日期为当天的23:59:59
         const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
+        end.setUTCHours(23, 59, 59, 999);
         query.date.$lte = end;
       }
     }
-    
-    // 执行查询并填充VIP数据
+
+    // 按手机号筛选
+    if (phone) {
+      const vips = await Vip.find({ 
+        phone: { 
+          $regex: phone.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), // Escape special regex characters
+          $options: 'i' 
+        } 
+      });
+      const vipIds = vips.map(vip => vip._id);
+      query.vip = { $in: vipIds };
+    }
+
+    // 执行查询并填充关联数据
     const transactions = await Transaction.find(query)
       .populate('vip', 'name phone')
+      .populate('technician', 'name code')
       .sort({ date: -1 });
-    
+
     // 计算总充值金额
     const totalAmount = transactions.reduce((sum, t) => sum + t.amount, 0);
-    
+
     // 汇总每位VIP的充值金额
     const vipSummary = {};
     transactions.forEach(t => {
@@ -98,7 +115,7 @@ exports.getRechargeReport = async (req, res) => {
       vipSummary[vipId].totalAmount += t.amount;
       vipSummary[vipId].count += 1;
     });
-    
+
     res.status(200).json({
       transactions,
       summary: {
@@ -115,11 +132,11 @@ exports.getRechargeReport = async (req, res) => {
 // 获取消费报表
 exports.getConsumptionReport = async (req, res) => {
   try {
-    const { startDate, endDate, technicianId } = req.query;
-    
+    const { startDate, endDate, technicianId, phone } = req.query;
+
     // 构建查询条件
     const query = { type: 'consumption' };
-    
+
     // 按时间范围筛选
     if (startDate || endDate) {
       query.date = {};
@@ -133,27 +150,39 @@ exports.getConsumptionReport = async (req, res) => {
         query.date.$lte = end;
       }
     }
-    
+
     // 按技师筛选
     if (technicianId) {
       query.technician = technicianId;
     }
-    
+
+    // 按手机号筛选
+    if (phone) {
+      const vips = await Vip.find({ 
+        phone: { 
+          $regex: phone.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), // Escape special regex characters
+          $options: 'i' 
+        } 
+      });
+      const vipIds = vips.map(vip => vip._id);
+      query.vip = { $in: vipIds };
+    }
+
     // 执行查询并填充关联数据
     const transactions = await Transaction.find(query)
       .populate('vip', 'name phone')
       .populate('technician', 'name code')
       .populate('projects.project', 'name price')
       .sort({ date: -1 });
-    
+
     // 计算总消费金额
     const totalAmount = transactions.reduce((sum, t) => sum + t.amount, 0);
-    
+
     // 汇总技师业绩
     const technicianSummary = {};
     // 汇总项目消费
     const projectSummary = {};
-    
+
     transactions.forEach(t => {
       // 技师业绩统计
       if (t.technician) {
@@ -168,7 +197,7 @@ exports.getConsumptionReport = async (req, res) => {
         technicianSummary[techId].totalAmount += t.amount;
         technicianSummary[techId].count += 1;
       }
-      
+
       // 项目消费统计
       if (t.projects && t.projects.length) {
         t.projects.forEach(p => {
@@ -187,7 +216,7 @@ exports.getConsumptionReport = async (req, res) => {
         });
       }
     });
-    
+
     res.status(200).json({
       transactions,
       summary: {
@@ -202,19 +231,19 @@ exports.getConsumptionReport = async (req, res) => {
   }
 };
 
-// Helper function to create date range query - CORRECTED to use 'date'
-const getDateRangeQuery = (startDate, endDate, field = 'date') => { // Use 'date' by default
+// Helper function to create date range query
+const getDateRangeQuery = (startDate, endDate, field = 'date') => {
   const query = {};
   if (startDate || endDate) {
-    query[field] = {}; // Use dynamic field name
+    query[field] = {};
     if (startDate) {
       const start = new Date(startDate);
-      start.setHours(0, 0, 0, 0);
+      start.setUTCHours(0, 0, 0, 0);
       query[field].$gte = start;
     }
     if (endDate) {
       const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999);
+      end.setUTCHours(23, 59, 59, 999);
       query[field].$lte = end;
     }
   }
@@ -263,42 +292,48 @@ exports.getVipSummary = async (req, res) => {
   }
 };
 
-// 获取平台 (Douyin/Meituan) 概览数据
+// 获取平台 (Douyin/Meituan/POS) 概览数据
 exports.getPlatformSummary = async (req, res) => {
   try {
     const { startDate, endDate, platform } = req.query;
 
-    if (!platform || !['douyin', 'meituan'].includes(platform.toLowerCase())) {
-      return res.status(400).json({ message: 'Invalid or missing platform parameter (douyin or meituan required)' });
+    if (!platform || !['douyin', 'meituan', 'pos'].includes(platform.toLowerCase())) {
+      return res.status(400).json({ message: 'Invalid or missing platform parameter (douyin, meituan, or pos required)' });
     }
 
-    // Date range query on DailyReport.date
-    const dateQuery = getDateRangeQuery(startDate, endDate, 'date');
-
-    // Aggregate from DailyReport model
-    const fieldPrefix = platform.toLowerCase();
-    const agg = await DailyReport.aggregate([
-      { $match: dateQuery },
-      {
-        $group: {
-          _id: null,
-          totalRevenue: { $sum: { $ifNull: [`$${fieldPrefix}.revenue`, 0] } },
-          totalHours: { $sum: { $ifNull: [`$${fieldPrefix}.hours`, 0] } },
-          reportCount: { $sum: 1 }
-        }
+    // 构建日期查询条件
+    const query = {};
+    if (startDate || endDate) {
+      query.date = {};
+      if (startDate) {
+        const start = new Date(startDate);
+        start.setUTCHours(0, 0, 0, 0);
+        query.date.$gte = start;
       }
-    ]);
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setUTCHours(23, 59, 59, 999);
+        query.date.$lte = end;
+      }
+    }
 
-    const summary = agg[0] || { totalRevenue: 0, totalHours: 0, reportCount: 0 };
+    // 从日报中获取数据
+    const reports = await DailyReport.find(query);
 
-    res.status(200).json({
-      totalRevenue: summary.totalRevenue,
-      totalHours: summary.totalHours,
-      orderCount: summary.reportCount
-    });
+    const summary = reports.reduce((acc, report) => {
+      const platformData = report[platform.toLowerCase()];
+      if (platformData) {
+        acc.totalRevenue += platformData.revenue || 0;
+        acc.totalHours += platformData.hours || 0;
+        acc.orderCount += 1;
+      }
+      return acc;
+    }, { totalRevenue: 0, totalHours: 0, orderCount: 0 });
+
+    res.status(200).json(summary);
 
   } catch (error) {
-    console.error(`Error fetching ${req.query.platform} summary from DailyReport:`, error);
+    console.error(`Error fetching ${req.query.platform} summary:`, error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -307,46 +342,39 @@ exports.getPlatformSummary = async (req, res) => {
 exports.getCashSummary = async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
-    // Date range query on DailyReport.date
-    const dateQuery = getDateRangeQuery(startDate, endDate, 'date');
 
-    // Aggregate cash and pos from DailyReport
-    const agg = await DailyReport.aggregate([
-      { $match: dateQuery },
-      {
-        $group: {
-          _id: null,
-          totalRevenue: {
-            $sum: {
-              $add: [
-                { $ifNull: ['$cash.revenue', 0] },
-                { $ifNull: ['$pos.revenue', 0] }
-              ]
-            }
-          },
-          totalHours: {
-            $sum: {
-              $add: [
-                { $ifNull: ['$cash.hours', 0] },
-                { $ifNull: ['$pos.hours', 0] }
-              ]
-            }
-          },
-          reportCount: { $sum: 1 }
-        }
+    // 构建日期查询条件
+    const query = {};
+    if (startDate || endDate) {
+      query.date = {};
+      if (startDate) {
+        const start = new Date(startDate);
+        start.setUTCHours(0, 0, 0, 0);
+        query.date.$gte = start;
       }
-    ]);
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setUTCHours(23, 59, 59, 999);
+        query.date.$lte = end;
+      }
+    }
 
-    const summary = agg[0] || { totalRevenue: 0, totalHours: 0, reportCount: 0 };
+    // 从日报中获取数据
+    const reports = await DailyReport.find(query);
 
-    res.status(200).json({
-      totalRevenue: summary.totalRevenue,
-      totalHours: summary.totalHours,
-      transactionCount: summary.reportCount
-    });
+    const summary = reports.reduce((acc, report) => {
+      if (report.cash) {
+        acc.totalRevenue += report.cash.revenue || 0;
+        acc.totalHours += report.cash.hours || 0;
+      }
+      acc.transactionCount += 1;
+      return acc;
+    }, { totalRevenue: 0, totalHours: 0, transactionCount: 0 });
+
+    res.status(200).json(summary);
 
   } catch (error) {
-    console.error('Error fetching cash summary from DailyReport:', error);
+    console.error('Error fetching cash summary:', error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -355,53 +383,60 @@ exports.getCashSummary = async (req, res) => {
 exports.createDailyReport = async (req, res) => {
   try {
     const {
-      date, // Expecting YYYY-MM-DD string or Date object
+      date,
       douyinHours, douyinRevenue,
       meituanHours, meituanRevenue,
       cashHours, cashRevenue,
       posHours, posRevenue
-      // createdBy // Optional: Pass user identifier if available
     } = req.body;
 
     if (!date) {
       return res.status(400).json({ message: 'Date is required for the daily report.' });
     }
 
-    // Prepare the report data object
+    // 准备报告数据对象
     const reportData = {
-      date: new Date(date), // Ensure it's a Date object
-      douyin: { hours: douyinHours || 0, revenue: douyinRevenue || 0 },
-      meituan: { hours: meituanHours || 0, revenue: meituanRevenue || 0 },
-      cash: { hours: cashHours || 0, revenue: cashRevenue || 0 },
-      pos: { hours: posHours || 0, revenue: posRevenue || 0 },
-      // createdBy: createdBy // Set if provided
-      updatedAt: new Date() // Explicitly set update time
+      date: new Date(date),
+      douyin: {
+        hours: douyinHours || 0,
+        revenue: douyinRevenue || 0
+      },
+      meituan: {
+        hours: meituanHours || 0,
+        revenue: meituanRevenue || 0
+      },
+      cash: {
+        hours: cashHours || 0,
+        revenue: cashRevenue || 0
+      },
+      pos: {
+        hours: posHours || 0,
+        revenue: posRevenue || 0
+      },
+      updatedAt: new Date()
     };
 
-    // Use findOneAndUpdate with upsert: true to create if not exists, update if exists
-    // Match based on the date (set to start of day by pre-save hook)
+    // 设置日期为当天的开始时间（UTC）
     const startOfDay = new Date(reportData.date);
-    startOfDay.setHours(0, 0, 0, 0);
+    startOfDay.setUTCHours(0, 0, 0, 0);
+    reportData.date = startOfDay;
 
+    // 查找并更新或创建日报记录
     const updatedReport = await DailyReport.findOneAndUpdate(
       { date: startOfDay },
       { $set: reportData },
       {
-        new: true, // Return the updated document
-        upsert: true, // Create if it doesn't exist
-        runValidators: true, // Ensure schema validation runs
-        setDefaultsOnInsert: true // Apply defaults if creating new
+        new: true,
+        upsert: true,
+        runValidators: true,
+        setDefaultsOnInsert: true
       }
     );
 
-    res.status(201).json(updatedReport);
+    res.status(200).json(updatedReport);
 
   } catch (error) {
     console.error("Error creating/updating daily report:", error);
-    // Handle potential duplicate key error if unique index fails unexpectedly
-    if (error.code === 11000) {
-        return res.status(409).json({ message: `Daily report for date ${date} already exists or conflict occurred.` });
-    }
     res.status(500).json({ message: error.message });
   }
-}; 
+};

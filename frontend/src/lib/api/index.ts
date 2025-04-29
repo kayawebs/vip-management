@@ -69,11 +69,11 @@ export const reportApi = {
 
   // --- NEW Summary Endpoints ---
   getVipSummary: (params: ReportParams = {}) => apiClient.get('/reports/summary/vip', { params }),
-  getPlatformSummary: (params: ReportParams & { platform: 'douyin' | 'meituan' }) => apiClient.get('/reports/summary/platform', { params }),
+  getPlatformSummary: (params: ReportParams & { platform: 'douyin' | 'meituan' | 'pos' }) => apiClient.get('/reports/summary/platform', { params }),
   getCashSummary: (params: ReportParams = {}) => apiClient.get('/reports/summary/cash', { params }),
 
   // --- NEW Daily Report Endpoint ---
-  createDailyReport: (data: DailyReportData) => apiClient.post('/reports/daily', data)
+  createDailyReport: (data: DailyReportData) => apiClient.post('/reports/daily', data),
 };
 
 // --- Currency Converter API ---

@@ -55,7 +55,7 @@ exports.createVip = async (req, res) => {
 exports.rechargeVip = async (req, res) => {
   try {
     const { id } = req.params;
-    const { amount } = req.body;
+    const { amount, technicianId, notes } = req.body;
 
     if (!amount || amount <= 0) {
       return res.status(400).json({ message: '充值金额必须大于0' });
@@ -75,7 +75,9 @@ exports.rechargeVip = async (req, res) => {
       vip: vip._id,
       type: 'recharge',
       amount,
-      notes: req.body.notes || '会员充值'
+      technician: technicianId,
+      paymentMethod: 'cash',
+      notes: notes || '会员充值'
     });
 
     await transaction.save();

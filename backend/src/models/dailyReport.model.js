@@ -40,7 +40,7 @@ const dailyReportSchema = new mongoose.Schema({
 dailyReportSchema.pre('save', function(next) {
   if (this.date) {
     const startOfDay = new Date(this.date);
-    startOfDay.setHours(0, 0, 0, 0);
+    startOfDay.setUTCHours(0, 0, 0, 0);
     this.date = startOfDay;
   }
   this.updatedAt = new Date();

@@ -87,6 +87,7 @@
     try {
       const result = await vipApi.recharge(vip._id, {
         amount: parseFloat(rechargeAmount),
+        technicianId: selectedTechnician || undefined,
         notes: rechargeNote
       });
 
@@ -94,6 +95,7 @@
       vip = result.data.vip;
       rechargeAmount = '';
       rechargeNote = '';
+      selectedTechnician = '';
       activeTab = 'info';
     } catch (err) {
       alert('充值失败: ' + (err.message || '未知错误'));
@@ -223,6 +225,19 @@
                 min="0"
                 step="1"
               />
+            </div>
+
+            <div class="form-group">
+              <label for="technician">选择技师（可选）</label>
+              <select
+                id="technician"
+                bind:value={selectedTechnician}
+              >
+                <option value="">请选择技师</option>
+                {#each technicians as technician}
+                  <option value={technician._id}>{technician.name}</option>
+                {/each}
+              </select>
             </div>
 
             <div class="form-group">

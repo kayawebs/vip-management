@@ -20,9 +20,9 @@
       ]);
 
       stats = {
-        vips: vipsData.length || 0,
-        projects: projectsData.length || 0,
-        technicians: techniciansData.length || 0
+        vips: vipsData.data?.length || 0,
+        projects: projectsData.data?.length || 0,
+        technicians: techniciansData.data?.length || 0
       };
     } catch (err) {
       console.error('获取统计数据失败:', err);
