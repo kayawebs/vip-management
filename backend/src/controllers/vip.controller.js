@@ -55,7 +55,7 @@ exports.createVip = async (req, res) => {
 exports.rechargeVip = async (req, res) => {
   try {
     const { id } = req.params;
-    const { amount, technicianId, notes } = req.body;
+    const { amount, bonusAmount = 0, technicianId, notes } = req.body;
 
     if (!amount || amount <= 0) {
       return res.status(400).json({ message: '充值金额必须大于0' });
@@ -66,8 +66,8 @@ exports.rechargeVip = async (req, res) => {
       return res.status(404).json({ message: 'VIP不存在' });
     }
 
-    // 更新余额
-    vip.balance += amount;
+    // 更新余额（实际充值金额 + 赠送金额）
+    vip.balance += amount + bonusAmount;
     await vip.save();
 
     // 记录交易
@@ -75,6 +75,7 @@ exports.rechargeVip = async (req, res) => {
       vip: vip._id,
       type: 'recharge',
       amount,
+      bonusAmount,
       technician: technicianId,
       paymentMethod: 'cash',
       notes: notes || '会员充值'
@@ -83,7 +84,7 @@ exports.rechargeVip = async (req, res) => {
     await transaction.save();
 
     // 发送短信通知
-    await sendRechargeSms(vip.phone, vip.name, amount, vip.balance);
+    await sendRechargeSms(vip.phone, vip.name, amount, bonusAmount, vip.balance);
 
     res.status(200).json({
       success: true,
@@ -99,7 +100,7 @@ exports.rechargeVip = async (req, res) => {
 exports.consumeVip = async (req, res) => {
   try {
     const { id } = req.params;
-    const { projects, technicianId, notes } = req.body;
+    const { projects, customAmount = 0, technicianId, notes } = req.body;
 
     if (!projects || !projects.length) {
       return res.status(400).json({ message: '请选择消费项目' });
@@ -119,6 +120,8 @@ exports.consumeVip = async (req, res) => {
     for (const item of projects) {
       totalAmount += item.price * item.quantity;
     }
+    // 加上自定义金额
+    totalAmount += customAmount;
 
     // 检查余额
     if (vip.balance < totalAmount) {
@@ -144,9 +147,6 @@ exports.consumeVip = async (req, res) => {
     });
 
     await transaction.save();
-
-    // 发送短信通知
-    await sendConsumptionSms(vip.phone, vip.name, totalAmount, vip.balance);
 
     res.status(200).json({
       success: true,

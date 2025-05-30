@@ -18,8 +18,9 @@ export const vipApi = {
   getAll: (params: any = {}) => apiClient.get('/vip', { params }),
   getById: (id: string) => apiClient.get(`/vip/${id}`),
   create: (data: VipData) => apiClient.post('/vip', data),
-  recharge: (id: string, data) => apiClient.post(`/vip/${id}/recharge`, data),
-  consume: (id: string, data) => apiClient.post(`/vip/${id}/consume`, data),
+  rechargeVip: (id: string, data: { amount: number; bonusAmount?: number; technicianId?: string; notes?: string }) => 
+    apiClient.post(`/vip/${id}/recharge`, data),
+  consume: (id: string, data: any) => apiClient.post(`/vip/${id}/consume`, data),
   update: (id: string, data: VipData) => apiClient.put(`/vip/${id}`, data),
   delete: (id: string) => apiClient.delete(`/vip/${id}`),
   addTransaction: (vipId: string, transactionData: TransactionData) => apiClient.post(`/vip/${vipId}/transactions`, transactionData),

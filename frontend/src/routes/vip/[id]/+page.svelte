@@ -11,9 +11,15 @@
   let selectedProjects = [];
   let selectedTechnician = '';
   let consumptionNote = '';
+  let customAmount = '';
   let loading = true;
-  let error = null;
+  let pageError = null;  // 页面加载错误
+  let rechargeMessage = null;  // 充值操作消息
   let activeTab = 'info'; // 'info', 'recharge', 'consume'
+  let amount = '';
+  let bonusAmount = '';
+  let technicianId = '';
+  let notes = '';
 
   onMount(async () => {
     try {
@@ -36,7 +42,7 @@
       technicians = techniciansData.data;
     } catch (err) {
       console.error('加载数据失败:', err);
-      error = err.message || '加载数据失败';
+      pageError = err.message || '加载数据失败';
     } finally {
       loading = false;
     }
@@ -72,39 +78,51 @@
   }
 
   function calculateTotal() {
-    return selectedProjects.reduce(
+    const projectsTotal = selectedProjects.reduce(
       (total, item) => total + (item.price * item.quantity),
       0
     );
+    const customTotal = customAmount ? parseFloat(customAmount) : 0;
+    return projectsTotal + customTotal;
   }
 
   async function handleRecharge() {
-    if (!rechargeAmount || parseFloat(rechargeAmount) <= 0) {
-      alert('请输入有效的充值金额');
+    if (!amount || isNaN(amount) || parseFloat(amount) <= 0) {
+      rechargeMessage = { type: 'error', message: '请输入有效的充值金额' };
       return;
     }
 
+    loading = true;
+    rechargeMessage = null;
+
     try {
-      const result = await vipApi.recharge(vip._id, {
-        amount: parseFloat(rechargeAmount),
-        technicianId: selectedTechnician || undefined,
-        notes: rechargeNote
+      const response = await vipApi.rechargeVip($page.params.id, {
+        amount: parseFloat(amount),
+        bonusAmount: bonusAmount ? parseFloat(bonusAmount) : 0,
+        technicianId,
+        notes
       });
 
-      alert('充值成功');
-      vip = result.data.vip;
-      rechargeAmount = '';
-      rechargeNote = '';
-      selectedTechnician = '';
-      activeTab = 'info';
+      // 更新本地VIP数据
+      vip = response.data.vip;
+      // 清空表单
+      amount = '';
+      bonusAmount = '';
+      technicianId = '';
+      notes = '';
+      // 显示成功消息
+      rechargeMessage = { type: 'success', message: '充值成功' };
     } catch (err) {
-      alert('充值失败: ' + (err.message || '未知错误'));
+      console.error('充值失败:', err);
+      rechargeMessage = { type: 'error', message: err.response?.data?.message || '充值失败' };
+    } finally {
+      loading = false;
     }
   }
 
   async function handleConsume() {
-    if (selectedProjects.length === 0) {
-      alert('请选择消费项目');
+    if (selectedProjects.length === 0 && !customAmount) {
+      alert('请选择消费项目或输入自定义金额');
       return;
     }
 
@@ -121,6 +139,7 @@
     try {
       const result = await vipApi.consume(vip._id, {
         projects: selectedProjects,
+        customAmount: customAmount ? parseFloat(customAmount) : 0,
         technicianId: selectedTechnician,
         notes: consumptionNote
       });
@@ -130,6 +149,7 @@
       selectedProjects = [];
       selectedTechnician = '';
       consumptionNote = '';
+      customAmount = '';
       activeTab = 'info';
     } catch (err) {
       alert('消费失败: ' + (err.message || '未知错误'));
@@ -145,9 +165,9 @@
 
   {#if loading}
     <div class="loading">加载中...</div>
-  {:else if error}
+  {:else if pageError}
     <div class="error">
-      <p>{error}</p>
+      <p>{pageError}</p>
       <button on:click={() => window.location.reload()}>重试</button>
     </div>
   {:else if vip}
@@ -173,19 +193,19 @@
 
       <div class="tabs">
         <button
-          class={activeTab === 'info' ? 'active' : ''}
+          class="tab-button {activeTab === 'info' ? 'active' : ''}"
           on:click={() => activeTab = 'info'}
         >
           会员信息
         </button>
         <button
-          class={activeTab === 'recharge' ? 'active' : ''}
+          class="tab-button {activeTab === 'recharge' ? 'active' : ''}"
           on:click={() => activeTab = 'recharge'}
         >
           充值
         </button>
         <button
-          class={activeTab === 'consume' ? 'active' : ''}
+          class="tab-button {activeTab === 'consume' ? 'active' : ''}"
           on:click={() => activeTab = 'consume'}
         >
           消费
@@ -215,47 +235,61 @@
         {:else if activeTab === 'recharge'}
           <div class="tab-recharge">
             <h3>会员充值</h3>
-            <div class="form-group">
-              <label for="amount">充值金额</label>
-              <input
-                type="number"
-                id="amount"
-                bind:value={rechargeAmount}
-                placeholder="请输入充值金额"
-                min="0"
-                step="1"
-              />
-            </div>
+            {#if rechargeMessage}
+              <div class="message {rechargeMessage.type}">
+                {rechargeMessage.message}
+              </div>
+            {/if}
+            <form class="recharge-form" on:submit|preventDefault={handleRecharge}>
+              <div class="form-group">
+                <label for="amount">充值金额</label>
+                <input
+                  type="number"
+                  id="amount"
+                  bind:value={amount}
+                  placeholder="请输入充值金额"
+                  min="0"
+                  step="0.01"
+                  required
+                />
+              </div>
 
-            <div class="form-group">
-              <label for="technician">选择技师（可选）</label>
-              <select
-                id="technician"
-                bind:value={selectedTechnician}
-              >
-                <option value="">请选择技师</option>
-                {#each technicians as technician}
-                  <option value={technician._id}>{technician.name}</option>
-                {/each}
-              </select>
-            </div>
+              <div class="form-group">
+                <label for="bonusAmount">赠送金额</label>
+                <input
+                  type="number"
+                  id="bonusAmount"
+                  bind:value={bonusAmount}
+                  placeholder="请输入赠送金额"
+                  min="0"
+                  step="0.01"
+                />
+              </div>
 
-            <div class="form-group">
-              <label for="notes">备注</label>
-              <textarea
-                id="notes"
-                bind:value={rechargeNote}
-                placeholder="可选备注信息"
-              ></textarea>
-            </div>
+              <div class="form-group">
+                <label for="technician">技师</label>
+                <select id="technician" bind:value={technicianId}>
+                  <option value="">请选择技师</option>
+                  {#each technicians as tech}
+                    <option value={tech._id}>{tech.name}</option>
+                  {/each}
+                </select>
+              </div>
 
-            <button
-              class="submit-button"
-              on:click={handleRecharge}
-              disabled={!rechargeAmount || parseFloat(rechargeAmount) <= 0}
-            >
-              确认充值
-            </button>
+              <div class="form-group">
+                <label for="notes">备注</label>
+                <input
+                  type="text"
+                  id="notes"
+                  bind:value={notes}
+                  placeholder="请输入备注"
+                />
+              </div>
+
+              <button type="submit" disabled={loading}>
+                {loading ? '充值中...' : '确认充值'}
+              </button>
+            </form>
           </div>
         {:else if activeTab === 'consume'}
           <div class="tab-consume">
@@ -279,6 +313,20 @@
                       </div>
                     {/if}
                   {/each}
+                </div>
+              </div>
+
+              <div class="custom-amount">
+                <h4>自定义金额</h4>
+                <div class="form-group">
+                  <input
+                    type="number"
+                    bind:value={customAmount}
+                    placeholder="请输入自定义金额（可选）"
+                    min="0"
+                    step="0.01"
+                  />
+                  <small>如果消费项目不在列表中，可以在这里输入自定义金额</small>
                 </div>
               </div>
 
@@ -451,18 +499,26 @@
   .tabs {
     display: flex;
     border-bottom: 1px solid #ddd;
+    background-color: #f5f5f5;
+    padding: 0 1rem;
   }
 
-  .tabs button {
+  .tab-button {
     padding: 1rem 1.5rem;
     background: none;
     border: none;
     border-bottom: 2px solid transparent;
     cursor: pointer;
     font-size: 1rem;
+    color: #666;
+    transition: all 0.2s ease;
   }
 
-  .tabs button.active {
+  .tab-button:hover {
+    color: #2196F3;
+  }
+
+  .tab-button.active {
     border-bottom-color: #2196F3;
     color: #2196F3;
     font-weight: 500;
@@ -658,5 +714,127 @@
   .warning {
     color: #F44336;
     font-weight: bold;
+  }
+
+  .recharge-form {
+    display: grid;
+    gap: 1rem;
+    max-width: 400px;
+    margin: 0 auto;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .form-group label {
+    font-weight: 500;
+    color: #333;
+  }
+
+  .form-group input,
+  .form-group select {
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 1rem;
+  }
+
+  .form-group input:focus,
+  .form-group select:focus {
+    outline: none;
+    border-color: #2196F3;
+    box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.1);
+  }
+
+  button {
+    padding: 0.75rem;
+    background-color: #2196F3;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+  }
+
+  button:hover {
+    background-color: #1976D2;
+  }
+
+  button:disabled {
+    background-color: #BDBDBD;
+    cursor: not-allowed;
+  }
+
+  @media (max-width: 768px) {
+    .recharge-form {
+      width: 100%;
+    }
+  }
+
+  .message {
+    padding: 1rem;
+    border-radius: 4px;
+    margin-bottom: 1.5rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .message.success {
+    background-color: #E8F5E9;
+    color: #2E7D32;
+    border: 1px solid #C8E6C9;
+  }
+
+  .message.error {
+    background-color: #FFEBEE;
+    color: #C62828;
+    border: 1px solid #FFCDD2;
+  }
+
+  .message::before {
+    content: '';
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+  }
+
+  .message.success::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%232E7D32'%3E%3Cpath d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z'/%3E%3C/svg%3E");
+  }
+
+  .message.error::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23C62828'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z'/%3E%3C/svg%3E");
+  }
+
+  .custom-amount {
+    margin: 1.5rem 0;
+    padding: 1rem;
+    background-color: #f5f5f5;
+    border-radius: 6px;
+  }
+
+  .custom-amount h4 {
+    margin: 0 0 0.75rem 0;
+    color: #333;
+  }
+
+  .custom-amount .form-group {
+    margin-bottom: 0;
+  }
+
+  .custom-amount small {
+    display: block;
+    color: #666;
+    margin-top: 0.25rem;
+    font-size: 0.85rem;
   }
 </style>

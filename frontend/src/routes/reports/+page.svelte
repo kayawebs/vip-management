@@ -12,6 +12,7 @@
     vip?: { _id: string; name: string; };
     projects?: { project: { name: string }; quantity: number }[];
     technician?: { _id: string; name: string; code?: string };
+    bonusAmount: number;
   }
 
   interface VipSummary {
@@ -351,14 +352,15 @@
               <th>时间</th>
               <th>会员</th>
               <th>技师</th>
-              <th>金额</th>
+              <th>充值金额</th>
+              <th>赠送金额</th>
               <th>备注</th>
             </tr>
           </thead>
           <tbody>
             {#if rechargeData.length === 0}
               <tr>
-                <td colspan="5" class="empty-data">暂无充值记录</td>
+                <td colspan="6" class="empty-data">暂无充值记录</td>
               </tr>
             {:else}
               {#each rechargeData as transaction}
@@ -367,6 +369,7 @@
                   <td>{transaction.vip?.name || '未知会员'}</td>
                   <td>{transaction.technician?.name || '-'}</td>
                   <td class="amount positive">¥{transaction.amount.toFixed(2)}</td>
+                  <td class="amount positive">¥{transaction.bonusAmount.toFixed(2)}</td>
                   <td>{transaction.notes || '-'}</td>
                 </tr>
               {/each}

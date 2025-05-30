@@ -15,12 +15,26 @@ const transactionSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
+  bonusAmount: {
+    type: Number,
+    default: 0
+  },
+  date: {
+    type: Date,
+    default: Date.now
+  },
+  notes: String,
   technician: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Technician',
     required: function() {
       return this.type === 'consumption';
     }
+  },
+  paymentMethod: {
+    type: String,
+    enum: ['cash', 'pos', 'vip_balance'],
+    default: 'cash'
   },
   projects: [{
     project: {
@@ -31,17 +45,7 @@ const transactionSchema = new mongoose.Schema({
       type: Number,
       default: 1
     }
-  }],
-  paymentMethod: {
-    type: String,
-    enum: ['vip_balance', 'cash', 'pos', 'douyin', 'meituan'],
-    required: true
-  },
-  notes: String,
-  date: {
-    type: Date,
-    default: Date.now
-  }
+  }]
 });
 
 module.exports = mongoose.model('Transaction', transactionSchema); 
