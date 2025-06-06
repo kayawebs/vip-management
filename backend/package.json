@@ -16,6 +16,7 @@
     "express-validator": "^7.2.1",
     "jsonwebtoken": "^9.0.1",
     "mongoose": "^7.4.1",
+    "qiniu": "^7.14.0",
     "tencentcloud-sdk-nodejs": "^4.0.611",
     "tencentcloud-sdk-nodejs-sms": "^4.1.24"
   },
