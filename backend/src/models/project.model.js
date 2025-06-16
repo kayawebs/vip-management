@@ -1,6 +1,11 @@
 const mongoose = require('mongoose');
 
 const projectSchema = new mongoose.Schema({
+  storeName: {
+    type: String,
+    required: true,
+    index: true
+  },
   name: {
     type: String,
     required: true,
@@ -21,7 +26,13 @@ const projectSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
   }
 });
 
-module.exports = mongoose.model('Project', projectSchema); 
+const Project = mongoose.model('Project', projectSchema);
+
+module.exports = Project; 

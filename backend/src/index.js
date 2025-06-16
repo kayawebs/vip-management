@@ -15,7 +15,12 @@ dotenv.config();
 const app = express();
 
 // 中间件
-app.use(cors());
+app.use(cors({
+  // origin: "http://121.196.193.60:5174", // 你的前端地址
+  origin: "*",
+  methods: ["GET", "POST", "PUT", "DELETE"], // 允许的 HTTP 方法
+  allowedHeaders: ["Content-Type", "Authorization"], // 允许的请求头
+}));
 app.use(express.json());
 
 // 数据库连接
@@ -39,4 +44,4 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`服务器运行在端口: ${PORT}`);
-}); 
+});

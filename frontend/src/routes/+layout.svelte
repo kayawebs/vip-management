@@ -2,8 +2,11 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import './app.css'
+  import { page } from '$app/stores';
+  import { browser } from '$app/environment';
 
   let isMenuOpen = false;
+  let isAuthenticated = false;
 
   function toggleMenu() {
     isMenuOpen = !isMenuOpen;
@@ -11,6 +14,23 @@
 
   function closeMenu() {
     isMenuOpen = false;
+  }
+
+  onMount(() => {
+    const token = localStorage.getItem('token');
+    isAuthenticated = !!token;
+
+    // 只在客户端执行导航
+    if (browser && !isAuthenticated && $page.url.pathname !== '/login') {
+      goto('/login');
+    }
+  });
+
+  // 监听路由变化，只在客户端执行
+  $: {
+    if (browser && !isAuthenticated && $page.url.pathname !== '/login') {
+      goto('/login');
+    }
   }
 </script>
 

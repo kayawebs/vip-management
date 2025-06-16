@@ -1,6 +1,11 @@
 const mongoose = require('mongoose');
 
 const technicianSchema = new mongoose.Schema({
+  storeName: {
+    type: String,
+    required: true,
+    index: true
+  },
   name: {
     type: String,
     required: true,
@@ -15,7 +20,13 @@ const technicianSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
   }
 });
 
-module.exports = mongoose.model('Technician', technicianSchema); 
+const Technician = mongoose.model('Technician', technicianSchema);
+
+module.exports = Technician; 

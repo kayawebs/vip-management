@@ -1,6 +1,5 @@
 import axios from 'axios';
-
-const API_BASE_URL = 'http://localhost:5001/api'; // Or your actual base URL
+import { API_BASE_URL } from '$lib/config';
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -80,6 +79,42 @@ export const reportApi = {
 // --- Currency Converter API ---
 export const converterApi = {
   getRates: () => apiClient.get('/converter/rates'), // Example endpoint
+};
+
+export const authApi = {
+  async register(data: { storeName: string; username: string; password: string }) {
+    const response = await fetch(`${API_BASE_URL}/auth/register`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || '注册失败');
+    }
+
+    return response.json();
+  },
+
+  async login(data: { username: string; password: string }) {
+    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || '登录失败');
+    }
+
+    return response.json();
+  }
 };
 
 export default apiClient;
