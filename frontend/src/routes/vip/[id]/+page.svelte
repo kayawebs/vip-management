@@ -82,8 +82,35 @@
       (total, item) => total + (item.price * item.quantity),
       0
     );
-    const customTotal = customAmount ? parseFloat(customAmount) : 0;
+    const customTotal = customAmount ? parseFloat(customAmount) || 0 : 0;
+    
+    // 只对项目金额应用折扣，自定义金额不折扣
+    const discount = vip ? vip.discount || 1.0 : 1.0;
+    const discountedProjectsTotal = projectsTotal * discount;
+    
+    return discountedProjectsTotal + customTotal;
+  }
+
+  function calculateSubtotal() {
+    const projectsTotal = selectedProjects.reduce(
+      (total, item) => total + (item.price * item.quantity),
+      0
+    );
+    const customTotal = customAmount ? parseFloat(customAmount) || 0 : 0;
     return projectsTotal + customTotal;
+  }
+
+  function calculateProjectsSubtotal() {
+    return selectedProjects.reduce(
+      (total, item) => total + (item.price * item.quantity),
+      0
+    );
+  }
+
+  function calculateDiscountedProjectsTotal() {
+    const projectsTotal = calculateProjectsSubtotal();
+    const discount = vip ? vip.discount || 1.0 : 1.0;
+    return projectsTotal * discount;
   }
 
   async function handleRecharge() {
@@ -121,13 +148,13 @@
   }
 
   async function handleConsume() {
-    if (selectedProjects.length === 0 && !customAmount) {
+    if (selectedProjects.length === 0 && (!customAmount || parseFloat(customAmount) <= 0)) {
       alert('请选择消费项目或输入自定义金额');
       return;
     }
 
-    if (!selectedTechnician) {
-      alert('请选择技师');
+    if (calculateTotal() <= 0) {
+      alert('总消费金额必须大于0');
       return;
     }
 
@@ -140,8 +167,11 @@
       const result = await vipApi.consume(vip._id, {
         projects: selectedProjects,
         customAmount: customAmount ? parseFloat(customAmount) : 0,
-        technicianId: selectedTechnician,
-        notes: consumptionNote
+        technicianId: selectedTechnician || null,
+        notes: consumptionNote,
+        originalAmount: calculateProjectsSubtotal(), // 项目原价
+        discountedAmount: calculateDiscountedProjectsTotal(), // 项目折扣后价格
+        finalAmount: calculateTotal() // 总消费金额（项目折扣后 + 自定义金额）
       });
 
       alert('消费成功');
@@ -184,6 +214,10 @@
         <div class="info-item">
           <span class="label">余额</span>
           <span class="value balance">¥{vip.balance.toFixed(2)}</span>
+        </div>
+        <div class="info-item">
+          <span class="label">会员折扣</span>
+          <span class="value discount">{vip.discount ? `${(vip.discount * 10).toFixed(1)}折` : '原价'}</span>
         </div>
         <div class="info-item">
           <span class="label">注册时间</span>
@@ -375,9 +409,9 @@
               </div>
 
               <div class="technician-selection">
-                <h4>选择技师</h4>
+                <h4>选择技师（可选）</h4>
                 <select bind:value={selectedTechnician}>
-                  <option value="">请选择技师</option>
+                  <option value="">请选择技师（可选）</option>
                   {#each technicians as technician}
                     {#if technician.isActive}
                       <option value={technician._id}>{technician.name} ({technician.code})</option>
@@ -393,7 +427,21 @@
 
               <div class="balance-check">
                 <p>
-                  当前余额: <span class="balance">¥{vip.balance.toFixed(2)}</span> |
+                  当前余额: <span class="balance">¥{vip.balance.toFixed(2)}</span>
+                </p>
+                {#if selectedProjects.length > 0}
+                  <p>
+                    项目原价: <span class="original-price">¥{calculateProjectsSubtotal().toFixed(2)}</span> |
+                    项目折扣: <span class="discount">{vip.discount ? `${(vip.discount * 10).toFixed(1)}折` : '原价'}</span> |
+                    项目实付: <span class="discounted-price">¥{calculateDiscountedProjectsTotal().toFixed(2)}</span>
+                  </p>
+                {/if}
+                {#if customAmount && parseFloat(customAmount) > 0}
+                  <p>
+                    自定义金额: <span class="custom-amount">¥{parseFloat(customAmount).toFixed(2)}</span> <small>(不参与折扣)</small>
+                  </p>
+                {/if}
+                <p>
                   消费金额: <span class="consume">¥{calculateTotal().toFixed(2)}</span> |
                   消费后余额: <span class={vip.balance - calculateTotal() < 0 ? 'negative' : 'positive'}>
                     ¥{(vip.balance - calculateTotal()).toFixed(2)}
@@ -408,7 +456,7 @@
               <button
                 class="submit-button"
                 on:click={handleConsume}
-                disabled={selectedProjects.length === 0 || vip.balance < calculateTotal() || !selectedTechnician}
+                disabled={(selectedProjects.length === 0 && (!customAmount || parseFloat(customAmount) <= 0)) || vip.balance < calculateTotal() || calculateTotal() <= 0}
               >
                 确认消费
               </button>
@@ -709,6 +757,26 @@
 
   .negative {
     color: #F44336;
+  }
+
+  .original-price {
+    color: #666;
+    text-decoration: line-through;
+  }
+
+  .discount {
+    color: #FF9800;
+    font-weight: bold;
+  }
+
+  .discounted-price {
+    color: #4CAF50;
+    font-weight: bold;
+  }
+
+  .custom-amount {
+    color: #2196F3;
+    font-weight: bold;
   }
 
   .warning {

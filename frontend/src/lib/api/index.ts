@@ -8,6 +8,41 @@ const apiClient = axios.create({
   }
 });
 
+// 请求拦截器：自动添加认证头
+apiClient.interceptors.request.use(
+  (config) => {
+    // 只在客户端执行
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('token');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// 响应拦截器：处理认证错误
+apiClient.interceptors.response.use(
+  (response) => {
+    return response;
+  },
+  (error) => {
+    // 如果是401错误，清除token并重定向到登录页面
+    if (error.response?.status === 401) {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 // --- VIP API ---
 // Define basic types or import from elsewhere if available
 interface VipData { [key: string]: any; } // Replace with actual VIP type if defined
@@ -31,7 +66,7 @@ export const projectApi = {
   getAll: () => apiClient.get('/projects'),
   create: (data: ProjectData) => apiClient.post('/projects', data),
   getById: (id: string) => apiClient.get(`/projects/${id}`),
-  update: (id: string, data) => apiClient.put(`/projects/${id}`, data),
+  update: (id: string, data: ProjectData) => apiClient.put(`/projects/${id}`, data),
   delete: (id: string) => apiClient.delete(`/projects/${id}`)
 };
 
@@ -40,9 +75,9 @@ interface TechnicianData { [key: string]: any; } // Replace with actual Technici
 export const technicianApi = {
   getAll: () => apiClient.get('/technicians'),
   create: (data: TechnicianData) => apiClient.post('/technicians', data),
-  getById: (id) => apiClient.get(`/technicians/${id}`),
-  update: (id, data) => apiClient.put(`/technicians/${id}`, data),
-  delete: (id) => apiClient.delete(`/technicians/${id}`)
+  getById: (id: string) => apiClient.get(`/technicians/${id}`),
+  update: (id: string, data: TechnicianData) => apiClient.put(`/technicians/${id}`, data),
+  delete: (id: string) => apiClient.delete(`/technicians/${id}`)
 };
 
 // --- Transaction API (Example, if needed separately) ---

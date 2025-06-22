@@ -3,10 +3,9 @@
   import { goto } from '$app/navigation';
   import './app.css'
   import { page } from '$app/stores';
-  import { browser } from '$app/environment';
+  import { authStore } from '$lib/stores/auth';
 
   let isMenuOpen = false;
-  let isAuthenticated = false;
 
   function toggleMenu() {
     isMenuOpen = !isMenuOpen;
@@ -17,53 +16,57 @@
   }
 
   onMount(() => {
-    const token = localStorage.getItem('token');
-    isAuthenticated = !!token;
-
-    // 只在客户端执行导航
-    if (browser && !isAuthenticated && $page.url.pathname !== '/login') {
-      goto('/login');
-    }
+    // 初始化认证状态
+    authStore.initialize();
   });
 
-  // 监听路由变化，只在客户端执行
-  $: {
-    if (browser && !isAuthenticated && $page.url.pathname !== '/login') {
-      goto('/login');
-    }
-  }
+  // 检查是否为登录页面
+  $: isLoginPage = $page.url.pathname === '/login';
 </script>
 
-<div class="app">
-  <header>
-    <div class="logo">
-      <h1>SPA店管理平台</h1>
-    </div>
-    <button class="menu-toggle" on:click={toggleMenu}>
-      <span class="menu-icon">☰</span>
-    </button>
-  </header>
-
-  <div class="content-wrapper">
-    <nav class={isMenuOpen ? 'open' : ''}>
-      <ul>
-        <li><a href="/" on:click={closeMenu}>首页</a></li>
-        <li><a href="/vip" on:click={closeMenu}>VIP管理</a></li>
-        <li><a href="/projects" on:click={closeMenu}>项目管理</a></li>
-        <li><a href="/technicians" on:click={closeMenu}>技师管理</a></li>
-        <li><a href="/reports" on:click={closeMenu}>报表管理</a></li>
-        <li><a href="/reports/manual-import" on:click={closeMenu}>手动导入日报</a></li>
-        <li><a href="/converter" on:click={closeMenu}>汇率换算</a></li>
-      </ul>
-    </nav>
-
-    <main>
-      <slot />
-    </main>
+{#if isLoginPage}
+  <!-- 登录页面使用独立布局 -->
+  <div class="login-layout">
+    <slot />
   </div>
-</div>
+{:else}
+  <!-- 其他页面使用标准布局 -->
+  <div class="app">
+    <header>
+      <div class="logo">
+        <h1>SPA店管理平台</h1>
+      </div>
+      <button class="menu-toggle" on:click={toggleMenu}>
+        <span class="menu-icon">☰</span>
+      </button>
+    </header>
+
+    <div class="content-wrapper">
+      <nav class={isMenuOpen ? 'open' : ''}>
+        <ul>
+          <li><a href="/" on:click={closeMenu}>首页</a></li>
+          <li><a href="/vip" on:click={closeMenu}>VIP管理</a></li>
+          <li><a href="/projects" on:click={closeMenu}>项目管理</a></li>
+          <li><a href="/technicians" on:click={closeMenu}>技师管理</a></li>
+          <li><a href="/reports" on:click={closeMenu}>报表管理</a></li>
+          <li><a href="/reports/manual-import" on:click={closeMenu}>手动导入日报</a></li>
+          <li><a href="/converter" on:click={closeMenu}>汇率换算</a></li>
+        </ul>
+      </nav>
+
+      <main>
+        <slot />
+      </main>
+    </div>
+  </div>
+{/if}
 
 <style>
+  .login-layout {
+    height: 100vh;
+    background-color: #f5f5f5;
+  }
+
   .app {
     height: 100vh;
     display: flex;

@@ -134,20 +134,25 @@ exports.getConsumptionReport = async (req, res) => {
   try {
     const { startDate, endDate, technicianId, phone } = req.query;
 
-    // 构建查询条件
-    const query = { type: 'consumption' };
+    console.log('消费报表查询参数:', { startDate, endDate, technicianId, phone });
 
-    // 按时间范围筛选
+    // 构建查询条件
+    const query = { type: 'consume' };
+
+    // 按时间范围筛选 - 使用统一的时区处理
     if (startDate || endDate) {
       query.date = {};
       if (startDate) {
-        query.date.$gte = new Date(startDate);
+        const start = new Date(startDate);
+        start.setUTCHours(0, 0, 0, 0);
+        query.date.$gte = start;
+        console.log('开始时间:', start);
       }
       if (endDate) {
-        // 设置结束日期为当天的23:59:59
         const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
+        end.setUTCHours(23, 59, 59, 999);
         query.date.$lte = end;
+        console.log('结束时间:', end);
       }
     }
 
@@ -168,12 +173,24 @@ exports.getConsumptionReport = async (req, res) => {
       query.vip = { $in: vipIds };
     }
 
+    console.log('查询条件:', JSON.stringify(query, null, 2));
+
     // 执行查询并填充关联数据
     const transactions = await Transaction.find(query)
       .populate('vip', 'name phone')
       .populate('technician', 'name code')
       .populate('projects.project', 'name price')
       .sort({ date: -1 });
+
+    console.log('查询到的交易数量:', transactions.length);
+    console.log('前3条交易记录:', transactions.slice(0, 3).map(t => ({
+      id: t._id,
+      date: t.date,
+      type: t.type,
+      amount: t.amount,
+      vip: t.vip?.name,
+      technician: t.technician?.name
+    })));
 
     // 计算总消费金额
     const totalAmount = transactions.reduce((sum, t) => sum + t.amount, 0);
@@ -227,6 +244,7 @@ exports.getConsumptionReport = async (req, res) => {
       }
     });
   } catch (error) {
+    console.error('消费报表查询失败:', error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -259,21 +277,21 @@ exports.getVipSummary = async (req, res) => {
 
     // 1. Aggregate Recharge and Consumption totals
     const transactionAgg = await Transaction.aggregate([
-      { $match: { ...transactionDateQuery, type: { $in: ['recharge', 'consumption'] } } }, // Use transactionDateQuery
+      { $match: { ...transactionDateQuery, type: { $in: ['recharge', 'consume'] } } }, // 修正：使用 'consume' 而不是 'consumption'
       {
         $group: {
           _id: '$type',
           totalAmount: { $sum: '$amount' },
           activeMembersSet: {
-            $addToSet: { $cond: [{ $eq: ['$type', 'consumption'] }, '$vip', null] }
+            $addToSet: { $cond: [{ $eq: ['$type', 'consume'] }, '$vip', null] } // 修正：使用 'consume'
           }
         }
       }
     ]);
 
     const rechargeTotal = transactionAgg.find(g => g._id === 'recharge')?.totalAmount || 0;
-    const consumptionTotal = transactionAgg.find(g => g._id === 'consumption')?.totalAmount || 0;
-    const activeMembersList = transactionAgg.find(g => g._id === 'consumption')?.activeMembersSet || [];
+    const consumptionTotal = transactionAgg.find(g => g._id === 'consume')?.totalAmount || 0; // 修正：使用 'consume'
+    const activeMembersList = transactionAgg.find(g => g._id === 'consume')?.activeMembersSet || []; // 修正：使用 'consume'
     const activeMembers = activeMembersList.filter(vipId => vipId !== null).length;
 
     // 2. Count New VIPs created in the date range

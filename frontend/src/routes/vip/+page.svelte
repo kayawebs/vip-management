@@ -1,20 +1,20 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { vipApi } from '$lib/api/index.ts';
+  import { vipApi } from '$lib/api';
 
-  let vips = [];
+  let vips: any[] = [];
   let loading = true;
-  let error = null;
+  let error: string | null = null;
 
   // 搜索功能
   let searchTerm = '';
-  let filteredVips = [];
+  let filteredVips: any[] = [];
 
   // 分页功能
   let currentPage = 1;
   let itemsPerPage = 10;
   let totalPages = 1;
-  let paginatedVips = [];
+  let paginatedVips: any[] = [];
 
   $: {
     // 过滤VIP列表
@@ -43,15 +43,15 @@
     }
   }
 
-  function changePage(page) {
+  function changePage(page: number) {
     currentPage = page;
   }
 
   onMount(async () => {
     try {
-      const data = await vipApi.getAll();
-      vips = data.data;
-    } catch (err) {
+      const response = await vipApi.getAll();
+      vips = response.data;
+    } catch (err: any) {
       console.error('获取VIP列表失败:', err);
       error = err.message || '加载VIP列表失败';
     } finally {
@@ -94,6 +94,7 @@
             <th>姓名</th>
             <th>手机号</th>
             <th>余额</th>
+            <th>折扣</th>
             <th>注册时间</th>
             <th>操作</th>
           </tr>
@@ -104,6 +105,7 @@
               <td>{vip.name}</td>
               <td>{vip.phone}</td>
               <td>¥{vip.balance.toFixed(2)}</td>
+              <td>{vip.discount ? `${(vip.discount * 10).toFixed(1)}折` : '原价'}</td>
               <td>{new Date(vip.createdAt).toLocaleDateString()}</td>
               <td class="actions">
                 <a href={`/vip/${vip._id}`} class="action-button">查看</a>

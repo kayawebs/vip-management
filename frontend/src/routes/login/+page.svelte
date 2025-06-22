@@ -1,7 +1,8 @@
-<script>
+<script lang="ts">
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
   import { authApi } from '$lib/api';
+  import { authStore } from '$lib/stores/auth';
 
   let isRegistering = false;
   let storeName = '';
@@ -11,11 +12,14 @@
   let loading = false;
 
   onMount(() => {
-    // 检查是否已登录
-    const token = localStorage.getItem('token');
-    if (token) {
-      goto('/');
-    }
+    // 如果已经登录，直接跳转到首页
+    const unsubscribe = authStore.subscribe(state => {
+      if (state.isAuthenticated) {
+        goto('/');
+      }
+    });
+
+    return unsubscribe;
   });
 
   async function handleSubmit() {
@@ -29,19 +33,20 @@
           username,
           password
         });
-        localStorage.setItem('token', response.token);
-        localStorage.setItem('user', JSON.stringify(response.user));
+        // 使用store管理登录状态
+        authStore.login(response.token, response.user);
       } else {
         const response = await authApi.login({
           username,
           password
         });
-        localStorage.setItem('token', response.token);
-        localStorage.setItem('user', JSON.stringify(response.user));
+        // 使用store管理登录状态
+        authStore.login(response.token, response.user);
       }
 
+      // 登录成功后跳转
       goto('/');
-    } catch (err) {
+    } catch (err: any) {
       error = err.message || '操作失败，请重试';
     } finally {
       loading = false;
@@ -49,81 +54,83 @@
   }
 </script>
 
-<div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-  <div class="max-w-md w-full space-y-8">
-    <div>
-      <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
+<div class="login-container">
+  <div class="login-card">
+    <div class="login-header">
+      <h1 class="login-title">SPA店管理平台</h1>
+      <h2 class="login-subtitle">
         {isRegistering ? '注册新店铺' : '登录'}
       </h2>
     </div>
-    <form class="mt-8 space-y-6" on:submit|preventDefault={handleSubmit}>
-      <div class="rounded-md shadow-sm -space-y-px">
+    
+    <form class="login-form" on:submit|preventDefault={handleSubmit}>
+      <div class="form-group">
         {#if isRegistering}
-          <div>
-            <label for="store-name" class="sr-only">店铺名</label>
+          <div class="input-group">
+            <label for="store-name" class="input-label">店铺名</label>
             <input
               id="store-name"
               name="storeName"
               type="text"
               required
               bind:value={storeName}
-              class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-              placeholder="店铺名"
+              class="input-field"
+              placeholder="请输入店铺名"
             />
           </div>
         {/if}
-        <div>
-          <label for="username" class="sr-only">用户名</label>
+        
+        <div class="input-group">
+          <label for="username" class="input-label">用户名</label>
           <input
             id="username"
             name="username"
             type="text"
             required
             bind:value={username}
-            class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 {isRegistering ? '' : 'rounded-t-md'} focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-            placeholder="用户名"
+            class="input-field"
+            placeholder="请输入用户名"
           />
         </div>
-        <div>
-          <label for="password" class="sr-only">密码</label>
+        
+        <div class="input-group">
+          <label for="password" class="input-label">密码</label>
           <input
             id="password"
             name="password"
             type="password"
             required
             bind:value={password}
-            class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-            placeholder="密码"
+            class="input-field"
+            placeholder="请输入密码"
           />
         </div>
       </div>
 
       {#if error}
-        <div class="text-red-500 text-sm text-center">{error}</div>
+        <div class="error-message">{error}</div>
       {/if}
 
-      <div>
-        <button
-          type="submit"
-          disabled={loading}
-          class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-        >
-          {#if loading}
-            <span class="absolute left-0 inset-y-0 flex items-center pl-3">
-              <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-            </span>
-          {/if}
-          {isRegistering ? '注册' : '登录'}
-        </button>
-      </div>
+      <button
+        type="submit"
+        disabled={loading}
+        class="submit-button"
+      >
+        {#if loading}
+          <span class="loading-spinner">
+            <svg class="spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          </span>
+        {/if}
+        {isRegistering ? '注册' : '登录'}
+      </button>
 
-      <div class="text-center">
+      <div class="switch-mode">
         <button
           type="button"
-          class="text-sm text-blue-600 hover:text-blue-500"
+          class="switch-button"
           on:click={() => {
             isRegistering = !isRegistering;
             error = '';
@@ -134,4 +141,178 @@
       </div>
     </form>
   </div>
-</div> 
+</div>
+
+<style>
+  .login-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 1rem;
+  }
+
+  .login-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    padding: 2.5rem;
+    width: 100%;
+    max-width: 400px;
+  }
+
+  .login-header {
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+
+  .login-title {
+    color: #333;
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin: 0 0 0.5rem 0;
+  }
+
+  .login-subtitle {
+    color: #666;
+    font-size: 1.125rem;
+    font-weight: 500;
+    margin: 0;
+  }
+
+  .login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .input-label {
+    color: #374151;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  .input-field {
+    padding: 0.75rem 1rem;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: all 0.2s;
+    background-color: #f9fafb;
+  }
+
+  .input-field:focus {
+    outline: none;
+    border-color: #667eea;
+    background-color: white;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  }
+
+  .input-field::placeholder {
+    color: #9ca3af;
+  }
+
+  .error-message {
+    color: #dc2626;
+    font-size: 0.875rem;
+    text-align: center;
+    padding: 0.5rem;
+    background-color: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 6px;
+  }
+
+  .submit-button {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 0.875rem 1.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    position: relative;
+  }
+
+  .submit-button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  }
+
+  .submit-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .loading-spinner {
+    display: flex;
+    align-items: center;
+  }
+
+  .spinner {
+    width: 1.25rem;
+    height: 1.25rem;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .switch-mode {
+    text-align: center;
+  }
+
+  .switch-button {
+    background: none;
+    border: none;
+    color: #667eea;
+    font-size: 0.875rem;
+    cursor: pointer;
+    text-decoration: underline;
+    transition: color 0.2s;
+  }
+
+  .switch-button:hover {
+    color: #5a67d8;
+  }
+
+  @media (max-width: 480px) {
+    .login-card {
+      padding: 1.5rem;
+      margin: 1rem;
+    }
+
+    .login-title {
+      font-size: 1.5rem;
+    }
+
+    .login-subtitle {
+      font-size: 1rem;
+    }
+  }
+</style> 

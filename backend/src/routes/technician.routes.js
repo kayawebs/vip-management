@@ -1,6 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const technicianController = require('../controllers/technician.controller');
+const auth = require('../middleware/auth.middleware');
+
+// 所有技师路由都需要认证
+router.use(auth);
 
 // 获取所有技师
 router.get('/', technicianController.getAllTechnicians);

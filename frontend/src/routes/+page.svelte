@@ -1,6 +1,8 @@
-<script>
+<script lang="ts">
   import { onMount } from 'svelte';
   import { vipApi, projectApi, technicianApi } from '$lib/api';
+  import { goto } from '$app/navigation';
+  import { authStore } from '$lib/stores/auth';
 
   let stats = {
     vips: 0,
@@ -10,6 +12,19 @@
 
   let loading = true;
   let error = '';
+
+  let user: any = null;
+
+  onMount(() => {
+    const unsubscribe = authStore.subscribe(state => {
+      user = state.user;
+      if (!state.isAuthenticated) {
+        goto('/login');
+      }
+    });
+
+    return unsubscribe;
+  });
 
   onMount(async () => {
     try {
@@ -24,14 +39,40 @@
         projects: projectsData.data?.length || 0,
         technicians: techniciansData.data?.length || 0
       };
-    } catch (err) {
+    } catch (err: any) {
       console.error('获取统计数据失败:', err);
       error = err.message || '无法连接到后端服务';
     } finally {
       loading = false;
     }
   });
+
+  function handleLogout() {
+    authStore.logout();
+    goto('/login');
+  }
 </script>
+
+<div class="home-container">
+  <div class="welcome-card">
+    <h1>欢迎使用SPA店管理平台</h1>
+    
+    {#if user}
+      <div class="user-info">
+        <h2>用户信息</h2>
+        <p><strong>店铺名：</strong>{user.storeName}</p>
+        <p><strong>用户名：</strong>{user.username}</p>
+        <p><strong>注册时间：</strong>{new Date(user.createdAt).toLocaleDateString('zh-CN')}</p>
+      </div>
+    {/if}
+
+    <div class="actions">
+      <button class="logout-button" on:click={handleLogout}>
+        退出登录
+      </button>
+    </div>
+  </div>
+</div>
 
 <div class="dashboard">
   <h1>仪表盘</h1>
@@ -99,6 +140,62 @@
 </div>
 
 <style>
+  .home-container {
+    padding: 2rem;
+    max-width: 800px;
+    margin: 0 auto;
+  }
+
+  .welcome-card {
+    background: white;
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  }
+
+  h1 {
+    color: #333;
+    margin-bottom: 2rem;
+    text-align: center;
+  }
+
+  .user-info {
+    background: #f8f9fa;
+    padding: 1.5rem;
+    border-radius: 8px;
+    margin-bottom: 2rem;
+  }
+
+  .user-info h2 {
+    color: #495057;
+    margin-bottom: 1rem;
+    font-size: 1.25rem;
+  }
+
+  .user-info p {
+    margin: 0.5rem 0;
+    color: #6c757d;
+  }
+
+  .actions {
+    text-align: center;
+  }
+
+  .logout-button {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background-color 0.2s;
+  }
+
+  .logout-button:hover {
+    background: #c82333;
+  }
+
   .dashboard {
     max-width: 1200px;
     margin: 0 auto;

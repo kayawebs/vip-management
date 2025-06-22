@@ -8,7 +8,7 @@ const transactionSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['recharge', 'consumption'],
+    enum: ['recharge', 'consume'],
     required: true
   },
   amount: {
@@ -19,6 +19,26 @@ const transactionSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  originalAmount: {
+    type: Number,
+    default: 0
+  },
+  discountedAmount: {
+    type: Number,
+    default: 0
+  },
+  finalAmount: {
+    type: Number,
+    default: 0
+  },
+  customAmount: {
+    type: Number,
+    default: 0
+  },
+  discount: {
+    type: Number,
+    default: 1.0
+  },
   date: {
     type: Date,
     default: Date.now
@@ -26,15 +46,12 @@ const transactionSchema = new mongoose.Schema({
   notes: String,
   technician: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Technician',
-    required: function() {
-      return this.type === 'consumption';
-    }
+    ref: 'Technician'
   },
   paymentMethod: {
     type: String,
     enum: ['cash', 'pos', 'vip_balance'],
-    default: 'cash'
+    default: 'vip_balance'
   },
   projects: [{
     project: {

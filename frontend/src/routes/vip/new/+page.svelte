@@ -1,11 +1,25 @@
-<script>
-  import { vipApi } from '$lib/api';
+<script lang="ts">
+  import { vipApi, technicianApi } from '$lib/api';
+  import { onMount } from 'svelte';
 
   let name = '';
   let phone = '';
   let initialBalance = '';
+  let discount = '1.0';
+  let technicianId = '';
+  let notes = '';
   let loading = false;
-  let error = null;
+  let error: string | null = null;
+  let technicians = [];
+
+  onMount(async () => {
+    try {
+      const response = await technicianApi.getAll();
+      technicians = response.data;
+    } catch (err) {
+      console.error('加载技师列表失败:', err);
+    }
+  });
 
   async function handleSubmit() {
     console.log(1111)
@@ -19,19 +33,34 @@
       return;
     }
 
+    // 验证折扣
+    const discountValue = parseFloat(discount);
+    if (isNaN(discountValue) || discountValue < 0.1 || discountValue > 1.0) {
+      alert('折扣必须在0.1到1.0之间');
+      return;
+    }
 
     loading = true;
     error = null;
 
     try {
-      const data = {
+      const data: any = {
         name: name.trim(),
-        phone: phone.trim()
+        phone: phone.trim(),
+        discount: discountValue
       };
 
       // 如果有初始余额，添加到请求中
       if (initialBalance && parseFloat(initialBalance) > 0) {
         data.balance = parseFloat(initialBalance);
+        // 如果有技师选择，添加到请求中
+        if (technicianId) {
+          data.technicianId = technicianId;
+        }
+        // 如果有备注，添加到请求中
+        if (notes.trim()) {
+          data.notes = notes.trim();
+        }
       }
 
       const result = await vipApi.create(data);
@@ -39,7 +68,7 @@
 
       // 跳转到会员详情页
       window.location.href = `/vip/${result.data._id}`;
-    } catch (err) {
+    } catch (err: any) {
       console.error('添加会员失败:', err);
       error = err.message || '添加会员失败';
     } finally {
@@ -86,6 +115,21 @@
       </div>
 
       <div class="form-group">
+        <label for="discount">会员折扣</label>
+        <input
+          type="number"
+          id="discount"
+          bind:value={discount}
+          placeholder="折扣比例"
+          min="0.1"
+          max="1.0"
+          step="0.1"
+          required
+        />
+        <small>折扣范围：0.1-1.0，1.0表示原价，0.8表示8折</small>
+      </div>
+
+      <div class="form-group">
         <label for="balance">初始余额（可选）</label>
         <input
           type="number"
@@ -95,7 +139,37 @@
           min="0"
           step="1"
         />
+        <small>如果设置初始余额，将自动创建充值记录</small>
       </div>
+
+      {#if initialBalance && parseFloat(initialBalance) > 0}
+        <div class="form-group">
+          <label for="technician">技师（可选）</label>
+          <select
+            id="technician"
+            bind:value={technicianId}
+          >
+            <option value="">请选择技师（可选）</option>
+            {#each technicians as technician}
+              {#if technician.isActive}
+                <option value={technician._id}>{technician.name} ({technician.code})</option>
+              {/if}
+            {/each}
+          </select>
+          <small>选择负责初始充值的技师</small>
+        </div>
+
+        <div class="form-group">
+          <label for="notes">备注（可选）</label>
+          <textarea
+            id="notes"
+            bind:value={notes}
+            placeholder="初始充值备注信息"
+            rows="3"
+          ></textarea>
+          <small>为初始充值添加备注信息</small>
+        </div>
+      {/if}
 
       <button
         type="submit"
@@ -155,12 +229,17 @@
     font-weight: 500;
   }
 
-  input {
+  input, select, textarea {
     width: 100%;
     padding: 0.8rem;
     border: 1px solid #ddd;
     border-radius: 4px;
     font-size: 1rem;
+  }
+
+  textarea {
+    resize: vertical;
+    min-height: 80px;
   }
 
   small {

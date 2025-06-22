@@ -5,10 +5,20 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "nodemon src/index.js"
+    "dev": "nodemon src/index.js",
+    "test:auth": "node src/test-auth.js",
+    "test:server": "node test-server.js",
+    "test:vip": "node test-vip.js",
+    "test:discount": "node test-discount.js"
   },
   "dependencies": {
+    "@alicloud/credentials": "^2.4.3",
+    "@alicloud/dysmsapi20170525": "^4.1.1",
+    "@alicloud/openapi-client": "^0.4.14",
+    "@alicloud/tea-typescript": "^1.8.0",
+    "@alicloud/tea-util": "^1.4.10",
     "@vonage/server-sdk": "^3.20.1",
+    "axios": "^1.6.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",

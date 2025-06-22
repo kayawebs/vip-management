@@ -4,10 +4,12 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 
 // 路由导入
+const authRoutes = require('./routes/auth.routes');
 const vipRoutes = require('./routes/vip.routes');
 const projectRoutes = require('./routes/project.routes');
 const technicianRoutes = require('./routes/technician.routes');
 const reportRoutes = require('./routes/report.routes');
+const converterRoutes = require('./routes/converter.routes');
 
 // 配置环境变量
 dotenv.config();
@@ -29,10 +31,12 @@ mongoose.connect(process.env.MONGODB_URI)
   .catch(err => console.error('MongoDB 连接失败:', err));
 
 // 路由
+app.use('/api/auth', authRoutes);
 app.use('/api/vip', vipRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/technicians', technicianRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/converter', converterRoutes);
 
 // 错误处理中间件
 app.use((err, req, res, next) => {
