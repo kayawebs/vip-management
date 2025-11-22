@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
-  import { vipApi, projectApi, technicianApi } from '$lib/api';
+  import { vipApi, projectApi, technicianApi, reportApi } from '$lib/api';
 
   let vip = null;
   let projects = [];
@@ -20,6 +20,7 @@
   let bonusAmount = '';
   let technicianId = '';
   let notes = '';
+  let txnHistory = [];
 
   onMount(async () => {
     try {
@@ -27,7 +28,7 @@
       // Check if there's a tab parameter in the URL
       const urlParams = new URLSearchParams(window.location.search);
       const tabParam = urlParams.get('tab');
-      if (tabParam && ['info', 'recharge', 'consume'].includes(tabParam)) {
+      if (tabParam && ['info', 'recharge', 'consume', 'history'].includes(tabParam)) {
         activeTab = tabParam;
       }
 
@@ -40,6 +41,15 @@
       vip = vipData.data;
       projects = projectsData.data;
       technicians = techniciansData.data;
+
+      // 载入交易历史（该会员）
+      try {
+        const historyRes = await reportApi.getTransactions({ vipId: id });
+        txnHistory = historyRes.data || historyRes; // axios 返回 data
+      } catch (e) {
+        console.warn('加载交易历史失败:', e?.message || e);
+        txnHistory = [];
+      }
     } catch (err) {
       console.error('加载数据失败:', err);
       pageError = err.message || '加载数据失败';
@@ -126,12 +136,16 @@
       const response = await vipApi.rechargeVip($page.params.id, {
         amount: parseFloat(amount),
         bonusAmount: bonusAmount ? parseFloat(bonusAmount) : 0,
-        technicianId,
+        technicianId: technicianId || null,
         notes
       });
 
       // 更新本地VIP数据
       vip = response.data.vip;
+      // 更新历史
+      if (response.data.transaction) {
+        txnHistory = [response.data.transaction, ...txnHistory];
+      }
       // 清空表单
       amount = '';
       bonusAmount = '';
@@ -176,6 +190,9 @@
 
       alert('消费成功');
       vip = result.data.vip;
+      if (result.data.transaction) {
+        txnHistory = [result.data.transaction, ...txnHistory];
+      }
       selectedProjects = [];
       selectedTechnician = '';
       consumptionNote = '';
@@ -244,13 +261,19 @@
         >
           消费
         </button>
+        <button
+          class="tab-button {activeTab === 'history' ? 'active' : ''}"
+          on:click={() => activeTab = 'history'}
+        >
+          记录
+        </button>
       </div>
 
       <div class="tab-content">
         {#if activeTab === 'info'}
           <div class="tab-info">
             <h3>会员详情</h3>
-            <p>查看该会员的详细信息、交易记录等。</p>
+            <p>查看该会员的详细信息。</p>
             <div class="actions">
               <button
                 class="action-button recharge"
@@ -263,6 +286,12 @@
                 on:click={() => activeTab = 'consume'}
               >
                 消费
+              </button>
+              <button
+                class="action-button"
+                on:click={() => activeTab = 'history'}
+              >
+                查看记录
               </button>
             </div>
           </div>
@@ -462,6 +491,44 @@
               </button>
             {/if}
           </div>
+        {:else if activeTab === 'history'}
+          <div class="tab-history">
+            <h3>交易记录</h3>
+            {#if txnHistory.length === 0}
+              <div class="empty-history">暂无交易记录</div>
+            {:else}
+              <table class="history-table">
+                <thead>
+                  <tr>
+                    <th>时间</th>
+                    <th>类型</th>
+                    <th>金额</th>
+                    <th>项目</th>
+                    <th>技师</th>
+                    <th>备注</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {#each txnHistory as t}
+                    <tr>
+                      <td>{new Date(t.date).toLocaleString()}</td>
+                      <td>{t.type === 'recharge' ? '充值' : '消费'}</td>
+                      <td>¥{(t.amount || 0).toFixed(2)}</td>
+                      <td>
+                        {#if t.projects && t.projects.length}
+                          {t.projects.map(p => p.project?.name || '').filter(Boolean).join('、')}
+                        {:else}
+                          -
+                        {/if}
+                      </td>
+                      <td>{t.technician?.name || '-'}</td>
+                      <td>{t.notes || '-'}</td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            {/if}
+          </div>
         {/if}
       </div>
     </div>
@@ -578,6 +645,62 @@
 
   .tab-info, .tab-recharge, .tab-consume {
     min-height: 300px;
+  }
+
+  /* History tab styles */
+  .tab-history {
+    min-height: 300px;
+  }
+
+  .history-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  }
+
+  .history-table thead {
+    background: #f7f9fc;
+  }
+
+  .history-table th, .history-table td {
+    padding: 12px 14px;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+    font-size: 0.95rem;
+    color: #333;
+  }
+
+  .history-table th {
+    font-weight: 600;
+    color: #455a64;
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+  }
+
+  .history-table tbody tr:hover {
+    background: #fafbff;
+  }
+
+  .history-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .tab-history h3 {
+    margin: 0 0 1rem 0;
+  }
+
+  .empty-history {
+    padding: 1rem;
+    text-align: center;
+    color: #78909c;
+    background: #f7f9fc;
+    border: 1px dashed #cfd8dc;
+    border-radius: 8px;
   }
 
   .actions {
@@ -906,3 +1029,4 @@
     font-size: 0.85rem;
   }
 </style>
+  
